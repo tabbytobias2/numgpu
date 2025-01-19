@@ -11,6 +11,7 @@ NumGPU License v1.1
     Restrictions
         You may not duplicate, fork, or create derivative works of the project for public or commercial use without explicit written permission from the copyright holder.
         You may not redistribute modified versions of the code, even for non-commercial purposes, without prior approval from the copyright holder.
+        You may not fork this project on github.
 
     Official Releases
         You may submit unmodified releases of the project to package repositories (e.g., PyPI, npm) with prior approval from the copyright holder.
