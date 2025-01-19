@@ -5,7 +5,7 @@ A Deno 2 library for doing math with WebGPU.
 
 ### Initializing
 ```typescript
-import * as ng from "./src/lib.ts";
+import * as ng from "./lib.ts";
 
 async function main() {
   await ng.init();
