@@ -4,6 +4,8 @@ let pipelineBindLayout: GPUPipelineLayout = undefined;
 let bindLayout: GPBindGroupLayout = undefined;
 export let device: GPUDevice = undefined;
 
+export let chunkSize = 255;
+
 export const operations: string[] = [
     "+",
     "-",
@@ -107,12 +109,13 @@ export async function getBuffer(buf: GPUBuffer): Promise<Float32Array> {
 
 export async function operate(buf1: GPUBuffer, buf2: GPUBuffer, operation: string, times?: number) {
   checkBuffers(buf1, buf2)
-  const pipeline = await createOperationPipeline(operation, buf1.size);
+  const pipeline = await createOperationPipeline(operation, buf1.size / 4);
   await useOperationPipeline(buf1, buf2, pipeline, times);
 }
 
 export async function useOperationPipeline(buf1: GPUBuffer, buf2: GPUBuffer, pipeline: GPUComputePipeline, times?: number) {
   checkBuffers(buf1, buf2);
+  const len = buf1.size / 4;
 
   const encoder = await device.createCommandEncoder();
   const pass = await encoder.beginComputePass();
@@ -131,14 +134,15 @@ export async function useOperationPipeline(buf1: GPUBuffer, buf2: GPUBuffer, pip
       },
     ],
   });
+
   pass.setPipeline(pipeline);
   pass.setBindGroup(0, bindGroup);
   if(times && times > 0) {
     for(let i = 0; i < times; i++) {
-      pass.dispatchWorkgroups(buf1.size / 4);
+      pass.dispatchWorkgroups(Math.ceil(len / chunkSize), 1, 1);
     }
   } else {
-    pass.dispatchWorkgroups(buf1.size / 4);
+    pass.dispatchWorkgroups(Math.ceil(len / chunkSize), 1, 1);
   }
   pass.end();
 
@@ -147,13 +151,14 @@ export async function useOperationPipeline(buf1: GPUBuffer, buf2: GPUBuffer, pip
 
 export async function createOperationPipeline(operation: string, length: number): Promise<GPUComputePipeline> {
   if(operation.length > 1) {throw new Error("Not an operation.")}
+
   const code = `
   @group(0) @binding(0) var<storage, read_write> data: array<f32>;
   @group(0) @binding(1) var<storage, read_write> modifier: array<f32>;
 
-  @compute @workgroup_size(${length}) fn main(@builtin(global_invocation_id) id: vec3u) {
-      let i = id.x;
-      data[i] = data[i] ${operation} modifier[i];
+  @compute @workgroup_size(${chunkSize}, 1, 1) fn main(@builtin(global_invocation_id) gi: vec3<u32>) {
+    if(gi.x > ${length}) {return;};
+    data[gi.x] = data[gi.x] ${operation} modifier[gi.x];
   }
   `
   const pipeline = await device.createComputePipeline({
